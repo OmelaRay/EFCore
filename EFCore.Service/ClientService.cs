@@ -33,4 +33,26 @@ public class ClientService : IClientService
         }
         return added;
     }
+
+    public List<Client> GetClientsByEmail(string v)
+   => this.context.Client.Where(c => c.Email.Contains(v)).ToList();
+
+    public List<Client> GetClientsByPhone(string v)
+   => this.context.Client.Where(c => c.Phone.Contains(v)).ToList();
+
+    public void Edit(Client client)
+    {
+        var set = this.context.Client.Where(p => p.Id == client.Id).FirstOrDefault();
+        set.FirstName = client.FirstName;
+        set.LastName = client.LastName;
+        set.Phone = client.Phone;
+        set.Email = client.Email;
+        this.context.SaveChanges();
+    }
+
+    public void Delete(Client client)
+    {
+        this.context.Remove(client);
+        this.context.SaveChanges();
+    }
 }

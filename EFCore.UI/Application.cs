@@ -2,6 +2,7 @@
 using EFCore.Shared.Interfaces;
 using EFCore.Shared.Utility;
 using Spectre.Console;
+using System.Linq;
 
 namespace EFCore.UI;
 internal class Application
@@ -33,33 +34,33 @@ internal class Application
         this.mainMenu.AddItem("New order",this.NewOrder, orders);
         var sfo = this.mainMenu.AddItem("Search for an order", parent: orders);
         this.mainMenu.AddItem("Get all orders by date span", this.GetOrdersByDates, sfo);
-        this.mainMenu.AddItem("Get all orders by client id", this.GetOrdersByClientId, sfo);                    // not implemented
-        this.mainMenu.AddItem("Find all orders by a product id", this.GetOrdersByProductId, sfo);               // not implemented
+        this.mainMenu.AddItem("Get all orders by client id", this.GetOrdersByClientId, sfo);                    
+        this.mainMenu.AddItem("Find all orders by a product id", this.GetOrdersByProductId, sfo);               
         this.mainMenu.AddItem("Show order details by order id", this.ShowOrderDetails, orders);
-        this.mainMenu.AddItem("Delete an order", this.DeleteOrder, orders);                                     // not implemented
+        this.mainMenu.AddItem("Delete an order", this.DeleteOrder, orders);                                 
         
         var products = this.mainMenu.AddItem("Products");
         this.mainMenu.AddItem("New product", this.NewProduct, products);
         var sfp = this.mainMenu.AddItem("Search for a product", parent: products);
         this.mainMenu.AddItem("Get a product by name or id", this.FindProductByNameOrId, sfp);
         this.mainMenu.AddItem("Get all the products by categories", this.GetAllProductsByCategory, sfp);
-        this.mainMenu.AddItem("Edit product", this.EditProduct, products);                                     // not implemented 
-        this.mainMenu.AddItem("Delete product", this.DeleteProduct, products);                                 // not implemented
+        this.mainMenu.AddItem("Edit product", this.EditProduct, products);                                     
+        this.mainMenu.AddItem("Delete product", this.DeleteProduct, products);                                 
 
         var categories = this.mainMenu.AddItem("Categories");
         this.mainMenu.AddItem("New category", this.NewCategory, categories);
-        this.mainMenu.AddItem("Show all categories", this.ShowAllCategories, categories);                       // not implemented
-        this.mainMenu.AddItem("Edit category", this.EditCategory, categories);                                  // not implemented
-        this.mainMenu.AddItem("Delete category", this.DeleteCategory, categories);                              // not implemented
+        this.mainMenu.AddItem("Show all categories", this.ShowAllCategories, categories);                      
+        this.mainMenu.AddItem("Edit category", this.EditCategory, categories);                                 
+        this.mainMenu.AddItem("Delete category", this.DeleteCategory, categories);        
 
         var clients = this.mainMenu.AddItem("Clients");
         this.mainMenu.AddItem("New client", this.NewClient, clients);
         var fc = this.mainMenu.AddItem("Find client", parent: clients);
-        this.mainMenu.AddItem("Find client by last name or id", this.FindClientByLastNameOrId, fc);             // not implemented
-        this.mainMenu.AddItem("Find client by email", this.FindClientByEmail, fc);                              // not implemented
-        this.mainMenu.AddItem("Find client by phone number", this.FindClientByPhone, fc);                       // not implemented
-        this.mainMenu.AddItem("Edit client info", this.EditClientInfo, clients);                                // not implemented
-        this.mainMenu.AddItem("Delete client", this.DeleteClient, clients);                                     // not implemented
+        this.mainMenu.AddItem("Find client by last name or id", this.FindClientByLastNameOrId, fc);            
+        this.mainMenu.AddItem("Find client by email", this.FindClientByEmail, fc);                            
+        this.mainMenu.AddItem("Find client by phone number", this.FindClientByPhone, fc);                      
+        this.mainMenu.AddItem("Edit client info", this.EditClientInfo, clients);                            
+        this.mainMenu.AddItem("Delete client", this.DeleteClient, clients);                                    
 
         this.mainMenu.AddItem("Exit", () => this.eventLoop = false);
     }
@@ -141,7 +142,51 @@ internal class Application
             );
         }
         return this.clients.GetClientById(clientId);
-    }    
+    }
+    private Client? SelectClientByEmail()
+    {
+        Console.Write("Specify the customer's email: > ");
+        string? clientInfo = Console.ReadLine();
+        if (string.IsNullOrEmpty(clientInfo))
+        {
+            Console.WriteLine("  ---   No data to search for a client   ---");
+            return null;
+        }
+            List<Client> clients = this.clients.GetClientsByEmail(clientInfo!);
+            AnsiConsole.Clear();
+            if (clients.Count < 1)
+            {
+                Console.WriteLine("No such clients found!");
+                return null;
+            }
+            return AnsiConsole.Prompt(
+                new SelectionPrompt<Client>()
+                    .AddChoices(clients)
+                    .UseConverter(c => $"{c.Id} {c.LastName} {c.FirstName} {c.Email}")
+            );
+    }
+    private Client? SelectClientByPhone()
+    {
+        Console.Write("Specify the customer's phone: > ");
+        string? clientInfo = Console.ReadLine();
+        if (string.IsNullOrEmpty(clientInfo))
+        {
+            Console.WriteLine("  ---   No data to search for a client   ---");
+            return null;
+        }
+        List<Client> clients = this.clients.GetClientsByPhone(clientInfo!);
+        AnsiConsole.Clear();
+        if (clients.Count < 1)
+        {
+            Console.WriteLine("No such clients found!");
+            return null;
+        }
+        return AnsiConsole.Prompt(
+            new SelectionPrompt<Client>()
+                .AddChoices(clients)
+                .UseConverter(c => $"{c.Id} {c.LastName} {c.FirstName} {c.Email}")
+        );
+    }
 
     private Category? SelectCategory()
     {
@@ -245,15 +290,49 @@ internal class Application
     }
     private void GetOrdersByClientId()
     {
-        throw new NotImplementedException();
+        var clientId = AnsiConsole.Prompt(new TextPrompt<int>("Client's id: "));
+        var result = this.orders.Search(o => o.Client.Id == clientId, true);
+        Console.WriteLine("All the orders client made:");
+        foreach (Order order in result)
+            Console.WriteLine($"Order id: [{order.Id,-4}] By client: [{order.Client.LastName,-12}{order.Client.FirstName,-12}] {order.IssueDateTime}");
     }
     private void GetOrdersByProductId()
     {
-        throw new NotImplementedException();
+        Console.Write("Input product id: ");
+        int productid;
+        if (!int.TryParse(Console.ReadLine(), out productid))
+        {
+            Console.WriteLine($"Not a valid id");
+            return;
+        }
+        var result = this.orders.All(productid);
+        Console.WriteLine("All the orders of product:");
+        foreach (var item in result)
+        {
+            Order? order = this.orders.FindById(item, true);
+            Console.WriteLine($"Order id: [{order.Id,-4}] By client: [{order.Client.LastName,-12}{order.Client.FirstName,-12}] {order.IssueDateTime}");
+        }
     }    
     private void DeleteOrder()
     {
-        throw new NotImplementedException();
+        Console.Write("Input order id: ");
+        int orderId;
+        if (!int.TryParse(Console.ReadLine(), out orderId))
+        {
+            Console.WriteLine($"Not a valid id");
+            return;
+        }
+        Order? order = this.orders.FindById(orderId, true);
+        if (order is null)
+        {
+            Console.WriteLine($"Unable to find an order by id [{orderId}]");
+            return;
+        }
+        Console.WriteLine("   --- Deleting an order ---");
+        if (AnsiConsole.Confirm("Are you sure to delete this order?"))
+        {
+            this.orders.Delete(order);
+        }
     }
     #endregion
 
@@ -314,12 +393,65 @@ internal class Application
 
     private void EditProduct()
     {
-        throw new NotImplementedException();
+        Product? product = this.SelectProduct();
+        if (product is null)
+        {
+            Console.WriteLine("No products found");
+            return;
+        }
+        Console.WriteLine("   --- Editing a product ---");
+        while (AnsiConsole.Confirm("Do you want to change name ?"))
+        {
+            string name = product.Name;
+            product.Name = AnsiConsole.Prompt(new TextPrompt<string>("Product name: "));
+            Console.WriteLine($"[{name}] has been changed to  [{product.Name}]");
+        }
+        while (AnsiConsole.Confirm("Do you want to change description ?"))
+        {
+            string description = product.Description;
+            product.Description = AnsiConsole.Prompt(new TextPrompt<string>("Product description: "));
+            Console.WriteLine($"[{description}] has been changed to  [{product.Description}]");
+        }
+        while (AnsiConsole.Confirm("Do you want to change price ?"))
+        {
+            decimal price = product.Price;
+            product.Price = AnsiConsole.Prompt(new TextPrompt<decimal>("Product price: "));
+            Console.WriteLine($"[{price}] has been changed to  [{product.Price}]");
+        }
+        while (AnsiConsole.Confirm("Do you want to add a category to the product?"))
+        {
+            Category? category = this.SelectCategory();
+            if (category is not null)
+            {
+                product.Categories.Add(category);
+                Console.WriteLine($"[{product.Name}] has been assigned the category [{category.Name}]");
+            }
+        }
+        while (AnsiConsole.Confirm("Do you want to remove a category from the product?"))
+        {
+            Category? category = this.SelectCategory();
+            if (category is not null)
+            {
+                product.Categories.Remove(category);
+                Console.WriteLine($"[{category.Name}] has been removed from [{product.Name}]");
+            }
+        }
+        this.products.Edit(product);
     }
 
     private void DeleteProduct()
     {
-        throw new NotImplementedException();
+        Product? product = this.SelectProduct();
+        if (product is null)
+        {
+            Console.WriteLine("No products found");
+            return;
+        }
+        Console.WriteLine("   --- Deleting a product ---");
+        if(AnsiConsole.Confirm("Are you sure to delete this product?"))
+        {
+            this.products.Delete(product);
+        }
     }
 
     #endregion
@@ -336,17 +468,50 @@ internal class Application
 
     private void ShowAllCategories()
     {
-        throw new NotImplementedException();
+        Console.WriteLine("   --- Showing all categories ---");
+        if (this.categories.GetCatagoriesList().Count() == 0)
+        {
+            Console.WriteLine("No catagories found");
+            return;
+        }
+        foreach (var item in this.categories.GetCatagoriesList())
+        {
+            Console.WriteLine(item);
+        }
+        Console.WriteLine();
     }
 
     private void EditCategory()
     {
-        throw new NotImplementedException();
+        Category? category = this.SelectCategory();
+        if (category is null)
+        {
+            Console.WriteLine("No category found");
+            return;
+        }
+        Console.WriteLine("   --- Editing a catagory ---");
+        while (AnsiConsole.Confirm("Do you want to change name ?"))
+        {
+            string name = category.Name;
+            category.Name = AnsiConsole.Prompt(new TextPrompt<string>("Category name: "));
+            Console.WriteLine($"[{name}] has been changed to  [{category.Name}]");
+        }
+        this.categories.Edit(category);
     }
 
     private void DeleteCategory()
     {
-        throw new NotImplementedException();
+        Category? category = this.SelectCategory();
+        if (category is null)
+        {
+            Console.WriteLine("No category found");
+            return;
+        }
+        Console.WriteLine("   --- Deleting a catagory ---");
+        if (AnsiConsole.Confirm("Are you sure to delete this catagory?"))
+        {
+            this.categories.Delete(category);
+        }
     }
 
     #endregion
@@ -380,12 +545,91 @@ internal class Application
             Phone = string.IsNullOrEmpty(phone) ? null : phone
         });
     }
-    private void DeleteClient() => throw new NotImplementedException();
-    private void EditClientInfo() => throw new NotImplementedException();
-    private void FindClientByPhone() => throw new NotImplementedException();
-    private void FindClientByEmail() => throw new NotImplementedException();
-    private void FindClientByLastNameOrId() => throw new NotImplementedException();
+    private void DeleteClient() {
+        Client? client = this.SelectClient();
+        if (client is null)
+        {
+            Console.WriteLine("No clients found");
+            return;
+        }
+        Console.WriteLine("   --- Deleting a client ---");
+        if (AnsiConsole.Confirm("Are you sure to delete this client?"))
+        {
+            this.clients.Delete(client);
+        }
+    }
+    private void EditClientInfo() {
+        Client? client = this.SelectClient();
+        if (client is null)
+        {
+            Console.WriteLine("No clients found");
+            return;
+        }
+        Console.WriteLine("   --- Editing a client ---");
+        while (AnsiConsole.Confirm("Do you want to change first name ?"))
+        {
+            string name = client.FirstName;
+            client.FirstName = AnsiConsole.Prompt(new TextPrompt<string>("Client's first name: "));
+            Console.WriteLine($"[{name}] has been changed to  [{client.FirstName}]");
+        }
+        while (AnsiConsole.Confirm("Do you want to change last name ?"))
+        {
+            string lastName = client.LastName;
+            client.LastName = AnsiConsole.Prompt(new TextPrompt<string>("Client's last name: "));
+            Console.WriteLine($"[{lastName}] has been changed to  [{client.LastName}]");
+        }
+        while (AnsiConsole.Confirm("Do you want to change phone ?"))
+        {
+            string phone = client.Phone;
+            client.Phone = AnsiConsole.Prompt(new TextPrompt<string>("Client's phone: "));
+            Console.WriteLine($"[{phone}] has been changed to  [{client.Phone}]");
+        }
+        while (AnsiConsole.Confirm("Do you want to change email ?"))
+        {
+            string email = client.Email;
+            client.Email = AnsiConsole.Prompt(new TextPrompt<string>("Client's email: "));
+            Console.WriteLine($"[{email}] has been changed to  [{client.Email}]");
+        }
 
+        this.clients.Edit(client);
+    }
+    private void FindClientByPhone()
+    {
+        Client? client = this.SelectClientByPhone();
+        if (client is null)
+        {
+            Console.WriteLine("No clients found");
+            return;
+        }
+        Console.WriteLine($"Id            : {client.Id}\n" +
+                          $"Name          : {client.FirstName} {client.LastName}\n" +
+                          $"Email         : {client.Email}\n" +
+                          $"Phone         : {client.Phone}");
+    }
+    private void FindClientByEmail() {
+        Client? client = this.SelectClientByEmail();
+        if (client is null)
+        {
+            Console.WriteLine("No clients found");
+            return;
+        }
+        Console.WriteLine($"Id            : {client.Id}\n" +
+                          $"Name          : {client.FirstName} {client.LastName}\n" +
+                          $"Email         : {client.Email}\n" +
+                          $"Phone         : {client.Phone}");
+    }
+    private void FindClientByLastNameOrId() {
+        Client? client = this.SelectClient();
+        if (client is null)
+        {
+            Console.WriteLine("No clients found");
+            return;
+        }
+        Console.WriteLine($"Id            : {client.Id}\n" +
+                          $"Name          : {client.FirstName} {client.LastName}\n" +
+                          $"Email         : {client.Email}\n" +
+                          $"Phone         : {client.Phone}");
+    }
     #endregion
 
     #endregion

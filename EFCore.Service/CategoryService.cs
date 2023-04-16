@@ -42,4 +42,32 @@ public class CategoryService : ICategoryService
         this.context.Entry(category).Collection(c => c.Products).Load();
         return category.Products.Count;
     }
+
+    public IEnumerable<object> GetCatagoriesList()
+    {
+        List<string> categories = new();
+        foreach ( var item in this.context.Category)
+        {
+            string catagory = item.Name + ": " + "\n";
+            foreach (var thing in item.Products)
+            {
+                catagory += "-" + thing.Name + "\n";
+            }
+            categories.Add(catagory);
+        }
+        return categories;
+    }
+
+    public void Edit(Category category)
+    {
+        var set = this.context.Category.Where(p => p.Id == category.Id).FirstOrDefault();
+        set.Name = category.Name;
+        this.context.SaveChanges();
+    }
+
+    public void Delete(Category category)
+    {
+        this.context.Remove(category);
+        this.context.SaveChanges();
+    }
 }
