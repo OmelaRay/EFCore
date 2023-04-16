@@ -81,6 +81,10 @@ internal class Application
             {
                 Console.WriteLine(er.Message);
             }
+            catch(NotImplementedException)
+            {
+                Console.WriteLine($"This function wasn't implemented yet");
+            }
             Console.WriteLine("Press any key to continue");
             _ = Console.ReadKey();
         }
